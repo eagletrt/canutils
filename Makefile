@@ -1,5 +1,5 @@
 all: copy patch build
-all-rpi: copy patch build-rpi
+all-arm: copy patch build-arm
 
 copy:
 	cp can-utils/lib.c . 
@@ -20,11 +20,15 @@ build:
 	mkdir -p build
 	cd build && cmake -G "Unix Makefiles" ..
 	make -C build
+	mv build/eagle_candump build/eagle_candump_x86_64
+	mv build/eagle_cansniffer build/eagle_cansniffer_x86_64
 
-build-rpi:
+build-arm:
 	mkdir -p build
 	cd build && cmake -G "Unix Makefiles" -D CMAKE_C_COMPILER=arm-linux-gnueabihf-gcc ..
 	make -C build
+	mv build/eagle_candump build/eagle_candump_arm
+	mv build/eagle_cansniffer build/eagle_cansniffer_arm
 
 clean: 
 	rm -rf build
