@@ -1,0 +1,42 @@
+name: Build
+
+on: 
+  - push
+  - workflow_dispatch
+
+jobs:
+  all:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v3
+        with:
+          submodules: true
+      - run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf
+
+      - run: make all
+      - name: Publish x86_64 eagle_candump
+        uses: actions/upload-artifact@v3
+        with:
+          name: eagle_candump_x86_64
+          path: build/eagle_candump
+      - name: Publish x86_64 eagle_cansniffer
+        uses: actions/upload-artifact@v3
+        with:
+          name: eagle_cansniffer_x86_64
+          path: build/eagle_cansniffer
+
+      - run: make all-rpi
+      - name: Publish arm eagle_candump
+        uses: actions/upload-artifact@v3
+        with:
+          name: eagle_candump_arm
+          path: build/eagle_candump
+      - name: Publish arm eagle_cansniffer
+        uses: actions/upload-artifact@v3
+        with:
+          name: eagle_cansniffer_arm
+          path: build/eagle_cansniffer
+

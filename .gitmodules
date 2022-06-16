@@ -1,0 +1,6 @@
+[submodule "can"]
+	path = can
+	url = git@github.com:eagletrt/can.git
+[submodule "can-utils"]
+	path = can-utils
+	url = git@github.com:linux-can/can-utils.git
