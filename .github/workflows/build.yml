@@ -17,26 +17,27 @@ jobs:
           sudo apt-get install -y build-essential cmake gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf
 
       - run: make all
-      - name: Publish x86_64 eagle_candump
-        uses: actions/upload-artifact@v3
-        with:
-          name: eagle_candump_x86_64
-          path: build/eagle_candump
-      - name: Publish x86_64 eagle_cansniffer
-        uses: actions/upload-artifact@v3
-        with:
-          name: eagle_cansniffer_x86_64
-          path: build/eagle_cansniffer
+      - run: make all-arm
 
-      - run: make all-rpi
-      - name: Publish arm eagle_candump
-        uses: actions/upload-artifact@v3
+      - name: Retrieve version info
+        id: version
+        run: |
+          can_commit="$(git -C can log -n 1 --pretty=format:"%H")"
+          echo "::set-output name=can_commit::$can_commit"
+          echo "::set-output name=date::$(date +"%Y.%m.%d_%H-%M")"
+
+      - name: Create release
+        uses: softprops/action-gh-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          name: eagle_candump_arm
-          path: build/eagle_candump
-      - name: Publish arm eagle_cansniffer
-        uses: actions/upload-artifact@v3
-        with:
-          name: eagle_cansniffer_arm
-          path: build/eagle_cansniffer
+          name: ${{ steps.version.outputs.can_commit }}
+          draft: false
+          prerelease: false
+          tag_name: ${{ steps.version.outputs.date }}-${{ steps.version.outputs.can_commit }}
+          files: |
+            build/eagle_candump_x86_64
+            build/eagle_cansniffer_x86_64
+            build/eagle_candump_arm
+            build/eagle_cansniffer_arm
 
