@@ -80,7 +80,7 @@ index 935270b..75eca0b 100644
 +		offset = CL_ID;
 +	} else if (can_id_type == CL_CAN_ID_SECONDARY && secondary_is_message_id(cf->can_id & CAN_SFF_MASK)) {
 +		char id_buffer[CL_ID];
-+		secondary_message_name_from_id(cf->can_id & CAN_SFF_MASK, buf);
++		secondary_message_name_from_id(cf->can_id & CAN_SFF_MASK, id_buffer);
 +		int len = sprintf(buf, "%*s", (int) CL_ID, id_buffer);
 +		buf[len] = ' ';
 +		offset = CL_ID;
