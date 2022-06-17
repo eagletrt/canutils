@@ -1,8 +1,8 @@
 diff --git a/cansniffer.c b/cansniffer.c
-index 5aa5e7a..fe19025 100644
+index 5aa5e7a..4c7aca2 100644
 --- a/cansniffer.c
 +++ b/cansniffer.c
-@@ -68,6 +68,20 @@
+@@ -68,6 +68,28 @@
  
  #include "terminal.h"
  
@@ -16,6 +16,14 @@ index 5aa5e7a..fe19025 100644
 +#include "can/lib/secondary/c/network.h"
 +#include "can/lib/secondary/c/ids.h"
 +
++typedef enum {
++  CL_CAN_ID_NONE,
++  CL_CAN_ID_PRIMARY,
++  CL_CAN_ID_SECONDARY
++} cl_can_id_type;
++
++cl_can_id_type can_id_type;
++
 +#define _MAX(A, B) ((A) > (B) ? (A) : (B))
 +#define ID_LENGTH _MAX(primary_MAX_MESSAGE_LENGTH, secondary_MAX_MESSAGE_LENGTH)
 +#define DATA_LENGTH 64 * sizeof("_AA")
@@ -23,7 +31,36 @@ index 5aa5e7a..fe19025 100644
  #define SETFNAME "sniffset."
  #define SETFDFNAME "sniffset_fd."
  #define FNAME_MAX_LEN 40
-@@ -703,12 +717,8 @@ int handle_timeo(long currcms)
+@@ -223,6 +245,7 @@ void print_usage(char *prg)
+ 	fprintf(stderr, "%s - volatile CAN content visualizer.\n", prg);
+ 	fprintf(stderr, "\nUsage: %s [can-interface]\n", prg);
+ 	fprintf(stderr, "Options:\n");
++	fprintf(stderr, "         -N <net>    (canlib network: (primary/secondary)\n");
+ 	fprintf(stderr, "         -q          (quiet - all IDs deactivated)\n");
+ 	fprintf(stderr, "         -r <name>   (read %sname from file)\n", SETFNAME);
+ 	fprintf(stderr, "         -e          (fix extended frame format output - no auto detect)\n");
+@@ -264,8 +287,19 @@ int main(int argc, char **argv)
+ 	for (i = 0; i < MAX_SLOTS ;i++) /* default: enable all slots */
+ 		do_set(i, ENABLE);
+ 
+-	while ((opt = getopt(argc, argv, "r:t:h:l:f:qeb8Bc?")) != -1) {
++	while ((opt = getopt(argc, argv, "N:r:t:h:l:f:qeb8Bc?")) != -1) {
+ 		switch (opt) {
++		case 'N':
++			if (strcmp(optarg, "primary") == 0) {
++				can_id_type = CL_CAN_ID_PRIMARY;
++			} else if (strcmp(optarg, "secondary") == 0) {
++				can_id_type = CL_CAN_ID_SECONDARY;
++			} else {
++				print_usage(basename(argv[0]));
++				exit(1);
++			}
++			break;
++
+ 		case 'r':
+ 			if (readsettings(optarg) < 0) {
+ 				fprintf(stderr, "Unable to read setting file '%s%s'!\n", SETFNAME, optarg);
+@@ -703,12 +737,8 @@ int handle_timeo(long currcms)
  	static unsigned int frame_count;
  
  	if (clearscreen) {
@@ -38,7 +75,7 @@ index 5aa5e7a..fe19025 100644
  
  		force_redraw = 1;
  		clearscreen = 0;
-@@ -772,14 +782,29 @@ void print_snifline(int slot)
+@@ -772,14 +802,29 @@ void print_snifline(int slot)
  	if (diffsec >= 100)
  		diffsec = 99, diffusec = 999999;
  
@@ -48,11 +85,11 @@ index 5aa5e7a..fe19025 100644
 -		printf("%02ld%03ld%s---- %03X%s", diffsec, diffusec/1000, vdl, cid & CAN_SFF_MASK, vdl);
 -	else
 -		printf("%02ld%03ld%s%03X%s", diffsec, diffusec/1000, ldl, cid & CAN_SFF_MASK, ldl);
-+	if (primary_is_message_id(cid & CAN_SFF_MASK)) {
++	if (can_id_type == CL_CAN_ID_PRIMARY && primary_is_message_id(cid & CAN_SFF_MASK)) {
 +		char buf[primary_MAX_MESSAGE_LENGTH];
 +		primary_message_name_from_id(cid & CAN_SFF_MASK, buf);
 +		printf("%02ld%03ld%s%*s%s", diffsec, diffusec/1000, vdl, ID_LENGTH, buf, vdl);
-+	} else if (secondary_is_message_id(cid & CAN_SFF_MASK)) {
++	} else if (can_id_type == CL_CAN_ID_SECONDARY && secondary_is_message_id(cid & CAN_SFF_MASK)) {
 +		char buf[secondary_MAX_MESSAGE_LENGTH];
 +		secondary_message_name_from_id(cid & CAN_SFF_MASK, buf);
 +		printf("%02ld%03ld%s%*s%s", diffsec, diffusec/1000, vdl, ID_LENGTH, buf, vdl);
@@ -61,12 +98,12 @@ index 5aa5e7a..fe19025 100644
 +	}
  
 -	if (binary) {
-+	if (primary_is_message_id(cid& CAN_SFF_MASK)) {
++	if (can_id_type == CL_CAN_ID_PRIMARY && primary_is_message_id(cid& CAN_SFF_MASK)) {
 +		void *message;
 +		primary_deserialize_from_id(cid& CAN_SFF_MASK, sniftab[slot].current.data, &message);
 +		primary_to_string_file_from_id(cid& CAN_SFF_MASK, message, stdout);
 +		free(message);
-+	} else if (secondary_is_message_id(cid& CAN_SFF_MASK)) {
++	} else if (can_id_type == CL_CAN_ID_SECONDARY && secondary_is_message_id(cid& CAN_SFF_MASK)) {
 +		void *message;
 +		secondary_deserialize_from_id(cid& CAN_SFF_MASK, sniftab[slot].current.data, &message);
 +		secondary_to_string_file_from_id(cid& CAN_SFF_MASK, message, stdout);
