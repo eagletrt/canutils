@@ -13,7 +13,7 @@ copy:
 	cp can-utils/cansniffer.c .
 
 patch:
-	patch -ruN < patches/candump.patch
+	patch -ruN < patches/lib.patch
 	patch -ruN < patches/cansniffer.patch
 
 build:

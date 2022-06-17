@@ -1,8 +1,0 @@
-{
-  "files.associations": {
-    "ids.h": "c",
-    "network.h": "c",
-    "lib.h": "c",
-    "terminal.h": "c"
-  }
-}

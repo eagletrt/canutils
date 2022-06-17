@@ -1,5 +1,5 @@
 diff --git a/lib.c b/lib.c
-index 4464618..cde3aea 100644
+index 935270b..5b63d93 100644
 --- a/lib.c
 +++ b/lib.c
 @@ -50,6 +50,16 @@
@@ -19,7 +19,7 @@ index 4464618..cde3aea 100644
  #include "lib.h"
  
  #define CANID_DELIM '#'
-@@ -361,7 +371,7 @@ void sprint_long_canframe(char *buf , struct canfd_frame *cf, int view, int maxd
+@@ -361,24 +371,28 @@ void sprint_long_canframe(char *buf , struct canfd_frame *cf, int view, int maxd
  	int len = (cf->len > maxdlen)? maxdlen : cf->len;
  
  	/* initialize space for CAN-ID and length information */
@@ -28,32 +28,53 @@ index 4464618..cde3aea 100644
  
  	if (cf->can_id & CAN_ERR_FLAG) {
  		put_eff_id(buf, cf->can_id & (CAN_ERR_MASK|CAN_ERR_FLAG));
-@@ -369,6 +379,12 @@ void sprint_long_canframe(char *buf , struct canfd_frame *cf, int view, int maxd
+-		offset = 10;
  	} else if (cf->can_id & CAN_EFF_FLAG) {
  		put_eff_id(buf, cf->can_id & CAN_EFF_MASK);
- 		offset = 10;
+-		offset = 10;
 +	} else if (primary_is_message_id(cf->can_id & CAN_SFF_MASK)) {
-+		offset = primary_message_name_from_id(cf->can_id & CAN_SFF_MASK, buf) + 1;
-+		sprintf(buf + offset - 1, "  ");
++		char id_buffer[CL_ID];
++		primary_message_name_from_id(cf->can_id & CAN_SFF_MASK, id_buffer);
++		int len = sprintf(buf, "%*s", (int) CL_ID, id_buffer);
++		buf[len] = ' ';
 +	} else if (secondary_is_message_id(cf->can_id & CAN_SFF_MASK)) {
-+		offset = secondary_message_name_from_id(cf->can_id & CAN_SFF_MASK, buf) + 1;
-+		sprintf(buf + offset - 1, "  ");
++		char id_buffer[CL_ID];
++		secondary_message_name_from_id(cf->can_id & CAN_SFF_MASK, buf);
++		int len = sprintf(buf, "%*s", (int) CL_ID, id_buffer);
++		buf[len] = ' ';
  	} else {
- 		if (view & CANLIB_VIEW_INDENT_SFF) {
- 			put_sff_id(buf + 5, cf->can_id & CAN_SFF_MASK);
-@@ -412,7 +428,17 @@ void sprint_long_canframe(char *buf , struct canfd_frame *cf, int view, int maxd
+-		if (view & CANLIB_VIEW_INDENT_SFF) {
+-			put_sff_id(buf + 5, cf->can_id & CAN_SFF_MASK);
+-			offset = 10;
+-		} else {
+-			put_sff_id(buf, cf->can_id & CAN_SFF_MASK);
+-			offset = 5;
+-		}
++		put_sff_id(buf, cf->can_id & CAN_SFF_MASK);
+ 	}
+ 
++	offset = CL_ID;
++
+ 	/* The len value is sanitized by maxdlen (see above) */
+ 	if (maxdlen == CAN_MAX_DLEN) {
+ 		if (view & CANLIB_VIEW_LEN8_DLC) {
+@@ -412,7 +426,21 @@ void sprint_long_canframe(char *buf , struct canfd_frame *cf, int view, int maxd
  	}
  	offset += 5;
  
 -	if (view & CANLIB_VIEW_BINARY) {
 +	if (primary_is_message_id(cf->can_id & CAN_SFF_MASK)) {
++		dlen = 0;
 +		void *message;
 +		primary_deserialize_from_id(cf->can_id & CAN_SFF_MASK, cf->data, &message);
++		offset += 1;
 +		offset += primary_to_string_from_id(cf->can_id & CAN_SFF_MASK, message, buf + offset);
 +		free(message);
 +	} else if (secondary_is_message_id(cf->can_id & CAN_SFF_MASK)) {
++		dlen = 0;
 +		void *message;
 +		secondary_deserialize_from_id(cf->can_id & CAN_SFF_MASK, cf->data, &message);
++		offset += 1;
 +		offset += secondary_to_string_from_id(cf->can_id & CAN_SFF_MASK, message, buf + offset);
 +		free(message);
 +	} else if (view & CANLIB_VIEW_BINARY) {
@@ -77,4 +98,3 @@ index 660f5e1..0892028 100644
 +
   /* CAN FD ASCII hex short representation with DATA_SEPERATORs */
  #define CL_CFSZ (2*CL_ID + 64*CL_DATA)
- 
