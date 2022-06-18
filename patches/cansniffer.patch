@@ -1,17 +1,17 @@
 diff --git a/cansniffer.c b/cansniffer.c
-index 5aa5e7a..4c7aca2 100644
+index 5aa5e7a..1674488 100644
 --- a/cansniffer.c
 +++ b/cansniffer.c
 @@ -68,6 +68,28 @@
  
  #include "terminal.h"
  
-+#define primary_IMPLEMENTATION
++#define primary_NETWORK_IMPLEMENTATION
 +#define primary_IDS_IMPLEMENTATION
 +#include "can/lib/primary/c/network.h"
 +#include "can/lib/primary/c/ids.h"
 +
-+#define secondary_IMPLEMENTATION
++#define secondary_NETWORK_IMPLEMENTATION
 +#define secondary_IDS_IMPLEMENTATION
 +#include "can/lib/secondary/c/network.h"
 +#include "can/lib/secondary/c/ids.h"
@@ -25,7 +25,7 @@ index 5aa5e7a..4c7aca2 100644
 +cl_can_id_type can_id_type;
 +
 +#define _MAX(A, B) ((A) > (B) ? (A) : (B))
-+#define ID_LENGTH _MAX(primary_MAX_MESSAGE_LENGTH, secondary_MAX_MESSAGE_LENGTH)
++#define ID_LENGTH _MAX(primary_MAX_MESSAGE_NAME_LENGTH, secondary_MAX_MESSAGE_NAME_LENGTH)
 +#define DATA_LENGTH 64 * sizeof("_AA")
 +
  #define SETFNAME "sniffset."
@@ -75,7 +75,7 @@ index 5aa5e7a..4c7aca2 100644
  
  		force_redraw = 1;
  		clearscreen = 0;
-@@ -772,14 +802,29 @@ void print_snifline(int slot)
+@@ -772,14 +802,33 @@ void print_snifline(int slot)
  	if (diffsec >= 100)
  		diffsec = 99, diffusec = 999999;
  
@@ -86,11 +86,11 @@ index 5aa5e7a..4c7aca2 100644
 -	else
 -		printf("%02ld%03ld%s%03X%s", diffsec, diffusec/1000, ldl, cid & CAN_SFF_MASK, ldl);
 +	if (can_id_type == CL_CAN_ID_PRIMARY && primary_is_message_id(cid & CAN_SFF_MASK)) {
-+		char buf[primary_MAX_MESSAGE_LENGTH];
++		char buf[primary_MAX_MESSAGE_NAME_LENGTH];
 +		primary_message_name_from_id(cid & CAN_SFF_MASK, buf);
 +		printf("%02ld%03ld%s%*s%s", diffsec, diffusec/1000, vdl, ID_LENGTH, buf, vdl);
 +	} else if (can_id_type == CL_CAN_ID_SECONDARY && secondary_is_message_id(cid & CAN_SFF_MASK)) {
-+		char buf[secondary_MAX_MESSAGE_LENGTH];
++		char buf[secondary_MAX_MESSAGE_NAME_LENGTH];
 +		secondary_message_name_from_id(cid & CAN_SFF_MASK, buf);
 +		printf("%02ld%03ld%s%*s%s", diffsec, diffusec/1000, vdl, ID_LENGTH, buf, vdl);
 +	} else {
@@ -99,15 +99,19 @@ index 5aa5e7a..4c7aca2 100644
  
 -	if (binary) {
 +	if (can_id_type == CL_CAN_ID_PRIMARY && primary_is_message_id(cid& CAN_SFF_MASK)) {
-+		void *message;
-+		primary_deserialize_from_id(cid& CAN_SFF_MASK, sniftab[slot].current.data, &message);
-+		primary_to_string_file_from_id(cid& CAN_SFF_MASK, message, stdout);
-+		free(message);
-+	} else if (can_id_type == CL_CAN_ID_SECONDARY && secondary_is_message_id(cid& CAN_SFF_MASK)) {
-+		void *message;
-+		secondary_deserialize_from_id(cid& CAN_SFF_MASK, sniftab[slot].current.data, &message);
-+		secondary_to_string_file_from_id(cid& CAN_SFF_MASK, message, stdout);
-+		free(message);
++		static void *message_raw = NULL;
++		static void *message_conversion = NULL;
++		if (message_raw == NULL) message_raw = malloc(primary_MAX_STRUCT_SIZE_RAW);
++		if (message_conversion == NULL) message_conversion = malloc(primary_MAX_STRUCT_SIZE_CONVERSION);
++		void* actual = primary_deserialize_from_id(cid & CAN_SFF_MASK, sniftab[slot].current.data, message_raw, message_conversion);
++		primary_to_string_file_from_id(cid & CAN_SFF_MASK, actual, stdout);
++	} else if (can_id_type == CL_CAN_ID_SECONDARY && primary_is_message_id(cid& CAN_SFF_MASK)) {
++		static void *message_raw = NULL;
++		static void *message_conversion = NULL;
++		if (message_raw == NULL) message_raw = malloc(secondary_MAX_STRUCT_SIZE_RAW);
++		if (message_conversion == NULL) message_conversion = malloc(secondary_MAX_STRUCT_SIZE_CONVERSION);
++		void* actual = secondary_deserialize_from_id(cid & CAN_SFF_MASK, sniftab[slot].current.data, message_raw, message_conversion);
++		secondary_to_string_file_from_id(cid & CAN_SFF_MASK, actual, stdout);
 +	} else if (binary) {
  		for (i = 0; i < sniftab[slot].current.len; i++) {
  			for (j=7; j >= 0; j--) {

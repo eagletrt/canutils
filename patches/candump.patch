@@ -38,19 +38,19 @@ index 6fe30bb..fed4be8 100644
  			count = atoi(optarg);
  			if (count < 1) {
 diff --git a/lib.c b/lib.c
-index 935270b..75eca0b 100644
+index 935270b..3b79334 100644
 --- a/lib.c
 +++ b/lib.c
 @@ -50,8 +50,20 @@
  #include <linux/can/error.h>
  #include <sys/socket.h> /* for sa_family_t */
  
-+#define primary_IMPLEMENTATION
++#define primary_NETWORK_IMPLEMENTATION
 +#define primary_IDS_IMPLEMENTATION
 +#include "can/lib/primary/c/network.h"
 +#include "can/lib/primary/c/ids.h"
 +
-+#define secondary_IMPLEMENTATION
++#define secondary_NETWORK_IMPLEMENTATION
 +#define secondary_IDS_IMPLEMENTATION
 +#include "can/lib/secondary/c/network.h"
 +#include "can/lib/secondary/c/ids.h"
@@ -98,31 +98,35 @@ index 935270b..75eca0b 100644
  	/* The len value is sanitized by maxdlen (see above) */
  	if (maxdlen == CAN_MAX_DLEN) {
  		if (view & CANLIB_VIEW_LEN8_DLC) {
-@@ -412,7 +440,21 @@ void sprint_long_canframe(char *buf , struct canfd_frame *cf, int view, int maxd
+@@ -412,7 +440,25 @@ void sprint_long_canframe(char *buf , struct canfd_frame *cf, int view, int maxd
  	}
  	offset += 5;
  
 -	if (view & CANLIB_VIEW_BINARY) {
 +	if (can_id_type == CL_CAN_ID_PRIMARY && primary_is_message_id(cf->can_id & CAN_SFF_MASK)) {
++		static void *message_raw = NULL;
++		static void *message_conversion = NULL;
++		if (message_raw == NULL) message_raw = malloc(primary_MAX_STRUCT_SIZE_RAW);
++		if (message_conversion == NULL) message_conversion = malloc(primary_MAX_STRUCT_SIZE_CONVERSION);
 +		dlen = 0;
-+		void *message;
-+		primary_deserialize_from_id(cf->can_id & CAN_SFF_MASK, cf->data, &message);
++		void* actual = primary_deserialize_from_id(cf->can_id & CAN_SFF_MASK, cf->data, message_raw, message_conversion);
 +		offset += 1;
-+		offset += primary_to_string_from_id(cf->can_id & CAN_SFF_MASK, message, buf + offset);
-+		free(message);
++		offset += primary_to_string_from_id(cf->can_id & CAN_SFF_MASK, actual, buf + offset);
 +	} else if (can_id_type == CL_CAN_ID_SECONDARY && secondary_is_message_id(cf->can_id & CAN_SFF_MASK)) {
++		static void *message_raw = NULL;
++		static void *message_conversion = NULL;
++		if (message_raw == NULL) message_raw = malloc(secondary_MAX_STRUCT_SIZE_RAW);
++		if (message_conversion == NULL) message_conversion = malloc(secondary_MAX_STRUCT_SIZE_CONVERSION);
 +		dlen = 0;
-+		void *message;
-+		secondary_deserialize_from_id(cf->can_id & CAN_SFF_MASK, cf->data, &message);
++		void* actual = secondary_deserialize_from_id(cf->can_id & CAN_SFF_MASK, cf->data, message_raw, message_conversion);
 +		offset += 1;
-+		offset += secondary_to_string_from_id(cf->can_id & CAN_SFF_MASK, message, buf + offset);
-+		free(message);
++		offset += secondary_to_string_from_id(cf->can_id & CAN_SFF_MASK, actual, buf + offset);
 +	} else if (view & CANLIB_VIEW_BINARY) {
  		dlen = 9; /* _10101010 */
  		if (view & CANLIB_VIEW_SWAP) {
  			for (i = len - 1; i >= 0; i--) {
 diff --git a/lib.h b/lib.h
-index a4d3ce5..6f97ff0 100644
+index a4d3ce5..6624e19 100644
 --- a/lib.h
 +++ b/lib.h
 @@ -53,6 +53,21 @@
@@ -134,7 +138,7 @@ index a4d3ce5..6f97ff0 100644
 +
 +#define _MAX(A, B) ((A) > (B) ? (A) : (B))
 +#undef CL_ID
-+#define CL_ID _MAX(_MAX(primary_MAX_MESSAGE_LENGTH, secondary_MAX_MESSAGE_LENGTH), (sizeof("12345678##1")))
++#define CL_ID _MAX(_MAX(primary_MAX_MESSAGE_NAME_LENGTH, secondary_MAX_MESSAGE_NAME_LENGTH), (sizeof("12345678##1")))
 +
 +typedef enum {
 +  CL_CAN_ID_NONE,
